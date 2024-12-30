@@ -45,7 +45,10 @@ impl Service {
 
     async fn task_send(self: Arc<Self>) {
         loop {
-            let p = asyn::queue_pop(self.send_queue.clone()).await;
+            let mut p = asyn::queue_pop(self.send_queue.clone()).await;
+            if p.mac_source() == MacAddress([0; 6]) {
+                p.set_mac_source(self.mac_address());
+            }
             if let Err(e) = self.network.transmit(&p.data[..p.header_size() + p.size()]) {
                 panic!("{}", e);
             }

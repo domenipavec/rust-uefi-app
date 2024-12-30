@@ -4,7 +4,7 @@ use log::info;
 
 use crate::{
     asyn::{sleep, Executor, SimpleExecutor, Task},
-    network::{arp, ethernet, ip},
+    network::{arp, ethernet, icmp, ip},
 };
 
 pub fn init() {
@@ -17,13 +17,17 @@ pub fn init() {
     log::info!("mac address: {:?}", mac_address);
 
     let ip_address = ip::Address([172, 23, 71, 108]);
-    log::info!("ip address: {:?}", mac_address);
+    log::info!("ip address: {:?}", ip_address);
 
     let arp_service = arp::Service::new(ip_address, mac_address, &mut network_service);
+    let mut ip_service = ip::Service::new(&mut network_service, ip_address);
+    let icmp_service = icmp::Service::new(&mut ip_service);
 
     let executor = SimpleExecutor::new();
     network_service.start(&executor);
     arp_service.start(&executor);
+    ip_service.start(&executor);
+    icmp_service.start(&executor);
 
     executor.spawn(Task::new(hello_world(0)));
     executor.spawn(Task::new(hello_world(1)));

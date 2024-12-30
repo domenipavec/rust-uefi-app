@@ -57,7 +57,11 @@ impl Packet {
         self.size = s;
     }
 
-    pub fn data(&mut self) -> &mut [u8] {
+    pub fn data(&self) -> &[u8] {
+        let header_size = self.header_size();
+        &self.data[header_size..header_size + self.size]
+    }
+    pub fn data_mut(&mut self) -> &mut [u8] {
         let header_size = self.header_size();
         &mut self.data[header_size..header_size + self.size]
     }
