@@ -1,6 +1,8 @@
 use core::fmt;
 use uefi::proto::network::MacAddress as UefiMacAddress;
 
+pub const MAC_BROADCAST: MacAddress = MacAddress([255, 255, 255, 255, 255, 255]);
+
 #[repr(C)]
 #[derive(PartialEq, Eq, Clone, Copy, Hash)]
 pub struct MacAddress(pub [u8; 6]);

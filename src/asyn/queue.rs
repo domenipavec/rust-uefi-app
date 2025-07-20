@@ -1,5 +1,7 @@
 extern crate alloc;
 
+use super::{sleep, OrFuture};
+use alloc::boxed::Box;
 use alloc::sync::Arc;
 use core::{
     future::Future,
@@ -24,5 +26,12 @@ impl<T> Future for PopFuture<T> {
             Some(p) => Poll::Ready(p),
             None => Poll::Pending,
         }
+    }
+}
+
+pub fn queue_pop_timeout<T: 'static>(queue: Arc<ArrayQueue<T>>, t: f64) -> OrFuture<T> {
+    OrFuture {
+        main: Box::pin(queue_pop(queue)),
+        second: Box::pin(sleep(t)),
     }
 }

@@ -4,7 +4,7 @@ use alloc::sync::Arc;
 use crossbeam_queue::ArrayQueue;
 use hashbrown::HashMap;
 
-use crate::{asyn, network::ethernet};
+use crate::{asyn, network::arp, network::ethernet};
 
 use super::{checksum, Address, Packet, Protocol, Socket};
 
@@ -12,14 +12,16 @@ pub struct Service {
     ethernet: Arc<ethernet::Socket>,
     sockets: HashMap<Protocol, Arc<ArrayQueue<Packet>>>,
     address: Address,
+    arp_service: Arc<arp::Service>,
 }
 
 impl Service {
-    pub fn new(eth: &mut ethernet::Service, address: Address) -> Service {
+    pub fn new(eth: &mut ethernet::Service, arp: Arc<arp::Service>, address: Address) -> Service {
         Service {
             ethernet: Arc::new(eth.open(ethernet::Type::IPV4)),
             sockets: HashMap::new(),
             address: address,
+            arp_service: arp,
         }
     }
 
@@ -34,6 +36,7 @@ impl Service {
             address: self.address,
             recv_queue: Arc::new(ArrayQueue::new(16)),
             ethernet: self.ethernet.clone(),
+            arp: self.arp_service.clone(),
         };
         self.sockets.insert(p, s.recv_queue.clone());
         s

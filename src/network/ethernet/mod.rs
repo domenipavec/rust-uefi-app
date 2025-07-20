@@ -8,7 +8,7 @@ mod simple_network;
 mod socket;
 
 pub use ether_type::Type;
-pub use mac_address::MacAddress;
+pub use mac_address::{MacAddress, MAC_BROADCAST};
 pub use packet::Packet;
 pub use service::Service;
 pub use socket::Socket;

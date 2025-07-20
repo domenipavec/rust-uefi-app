@@ -5,7 +5,7 @@ use uefi_raw::newtype_enum;
 use crate::network::ip;
 
 pub struct Packet {
-    pub(super) ip: ip::Packet,
+    pub ip: ip::Packet,
 }
 
 impl fmt::Debug for Packet {
@@ -26,6 +26,12 @@ impl fmt::Debug for Packet {
 }
 
 impl Packet {
+    pub fn new() -> Packet {
+        Packet {
+            ip: ip::Packet::new(),
+        }
+    }
+
     pub fn typ(&self) -> Type {
         Type(self.ip.data()[0])
     }
