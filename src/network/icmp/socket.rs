@@ -16,6 +16,10 @@ pub struct Socket {
 }
 
 impl Socket {
+    pub fn ip_address(&self) -> ip::Address {
+        self.ip_address
+    }
+
     pub async fn receive(&self, t: f64) -> Option<Packet> {
         asyn::queue_pop_timeout(self.recv_queue.clone(), t).await
     }

@@ -23,7 +23,7 @@ impl Service {
         }
     }
 
-    pub fn start(self, e: &dyn Executor) {
+    pub fn start(self, e: Arc<dyn Executor>) {
         let arc = Arc::new(self);
         e.spawn(Task::new(arc.clone().task_receive()));
         e.spawn(Task::new(arc.clone().task_send()));

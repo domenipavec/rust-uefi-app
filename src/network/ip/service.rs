@@ -3,43 +3,84 @@ extern crate alloc;
 use alloc::sync::Arc;
 use crossbeam_queue::ArrayQueue;
 use hashbrown::HashMap;
-
-use crate::{asyn, network::arp, network::ethernet};
+use log::info;
 
 use super::{checksum, Address, Packet, Protocol, Socket};
+use crate::{asyn, network::arp, network::ethernet};
 
 pub struct Service {
     ethernet: Arc<ethernet::Socket>,
-    sockets: HashMap<Protocol, Arc<ArrayQueue<Packet>>>,
-    address: Address,
     arp_service: Arc<arp::Service>,
+
+    sockets: asyn::Mutex<HashMap<Protocol, Arc<ArrayQueue<Packet>>>>,
+
+    address: Address,
+    netmask: Address,
+    gateway: Address,
 }
 
 impl Service {
-    pub fn new(eth: &mut ethernet::Service, arp: Arc<arp::Service>, address: Address) -> Service {
+    pub fn new(
+        eth: &mut ethernet::Service,
+        arp: Arc<arp::Service>,
+        address: Address,
+        netmask: Address,
+        gateway: Address,
+    ) -> Service {
         Service {
             ethernet: Arc::new(eth.open(ethernet::Type::IPV4)),
-            sockets: HashMap::new(),
-            address: address,
             arp_service: arp,
+
+            sockets: asyn::Mutex::new(HashMap::new()),
+
+            address: address,
+            netmask: netmask,
+            gateway: gateway,
         }
     }
 
-    pub fn start(self, e: &dyn asyn::Executor) {
-        let arc = Arc::new(self);
-        e.spawn(asyn::Task::new(arc.clone().task_receive()));
+    pub fn start(self: Arc<Self>, e: Arc<dyn asyn::Executor>) {
+        e.spawn(asyn::Task::new(self.task_receive()));
     }
 
-    pub fn open(&mut self, p: Protocol) -> Socket {
+    pub async fn open(self: Arc<Self>, p: Protocol) -> Socket {
         let s = Socket {
             protocol: p,
-            address: self.address,
             recv_queue: Arc::new(ArrayQueue::new(16)),
-            ethernet: self.ethernet.clone(),
-            arp: self.arp_service.clone(),
+            service: self.clone(),
         };
-        self.sockets.insert(p, s.recv_queue.clone());
+        let mut sockets = self.sockets.lock().await;
+        sockets.insert(p, s.recv_queue.clone());
         s
+    }
+
+    pub(super) async fn send(&self, mut p: Packet) {
+        if p.source_address() == Address([0; 4]) {
+            p.set_source_address(&self.address);
+        }
+
+        p.set_header_checksum(0);
+        p.set_header_checksum(checksum(p.header()));
+
+        if p.eth.mac_destination() == ethernet::MacAddress([0; 6]) {
+            if p.destination_address() & self.netmask == self.address & self.netmask {
+                match self.arp_service.lookup(&p.destination_address()).await {
+                    Some(a) => p.eth.set_mac_destination(a),
+                    None => (),
+                };
+            } else {
+                match self.arp_service.lookup(&self.gateway).await {
+                    Some(a) => p.eth.set_mac_destination(a),
+                    None => (),
+                };
+            }
+        }
+
+        if p.eth.mac_destination() != ethernet::MacAddress([0; 6]) {
+            self.ethernet.send(p.eth);
+        } else {
+            info!("dropping packet without destination mac");
+        }
     }
 
     async fn task_receive(self: Arc<Self>) {
@@ -52,7 +93,8 @@ impl Service {
                 continue;
             }
 
-            if let Some(s) = self.sockets.get(&ip_packet.protocol()) {
+            let sockets = self.sockets.lock().await;
+            if let Some(s) = sockets.get(&ip_packet.protocol()) {
                 s.push(ip_packet).unwrap();
             }
         }

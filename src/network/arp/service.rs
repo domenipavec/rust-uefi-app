@@ -56,7 +56,7 @@ impl Service {
         }
     }
 
-    pub fn start(self: Arc<Self>, e: &dyn asyn::Executor) {
+    pub fn start(self: Arc<Self>, e: Arc<dyn asyn::Executor>) {
         e.spawn(asyn::Task::new(self.task_receive()));
     }
 

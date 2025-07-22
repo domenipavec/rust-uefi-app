@@ -17,14 +17,14 @@ pub struct Service {
 }
 
 impl Service {
-    pub fn new(ip: &mut ip::Service) -> Service {
+    pub async fn new(ip: Arc<ip::Service>) -> Service {
         Service {
-            ip_socket: Arc::new(ip.open(ip::Protocol::ICMP)),
+            ip_socket: Arc::new(ip.open(ip::Protocol::ICMP).await),
             sockets: HashMap::new(),
             next_request_identifier: 0,
         }
     }
-    pub fn start(self, e: &dyn asyn::Executor) {
+    pub fn start(self, e: Arc<dyn asyn::Executor>) {
         e.spawn(asyn::Task::new(self.task_receive()));
     }
 
